@@ -1,0 +1,166 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TELECALLER
+  ASSOCIATE
+}
+
+enum Availability {
+  AVAILABLE
+  LUNCH
+  MEETING
+  BREAK
+  AWAY
+  OFFLINE
+}
+
+enum LeadStatus {
+  NEW
+  HOT
+  WARM
+  COLD
+  LATER
+}
+
+enum AssocStatus {
+  SITEVISIT
+  INTERESTED
+  FOLLOWUP
+  BOOKED
+  PAYMENT_PENDING
+  COLD
+}
+
+enum LeadSource {
+  WEBSITE
+  SOCIAL_MEDIA
+  REFERRAL
+  WALK_IN
+  OTHER
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  firstName    String?
+  lastName     String?
+  dob          DateTime?
+  gender       String?
+  email        String       @unique
+  password     String
+  phone        String?
+  aadhaarNum   String?
+  panNum       String?
+  bankName     String?
+  branch       String?
+  accountHolder String?
+  bankAccount  String?
+  ifscCode     String?
+  nomineeName  String?
+  nomineePhone String?
+  userAuthId   String?      @unique
+  role         Role
+  availability Availability @default(AVAILABLE)
+  isOnline     Boolean      @default(false)
+  mustChangePassword Boolean @default(true)
+  lastLoginAt  DateTime?
+  lastActiveAt DateTime?    // ⭐ ADD THIS FIELD
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  telecallerLeads Lead[]    @relation("TelecallerLeads")
+  associateLeads  Lead[]    @relation("AssociateLeads")
+  assignedLeads   Lead[]    @relation("AdminAssignments")
+  callLogs       CallLog[]
+  meetings       Meeting[]
+  activities     Activity[]
+
+  @@map("users")
+}
+
+model Lead {
+  id            String      @id @default(cuid())
+  name          String
+  phone         String      @unique
+  email         String?
+  location      String?
+  source        LeadSource  @default(OTHER)
+  sourceDetail  String?
+  status        LeadStatus  @default(NEW)
+  assocStatus   AssocStatus?
+  notes         String?
+
+  telecallerId  String?
+  telecaller    User?       @relation("TelecallerLeads", fields: [telecallerId], references: [id])
+
+  associateId   String?
+  associate     User?       @relation("AssociateLeads", fields: [associateId], references: [id])
+  
+  assignedById  String?
+  assignedBy    User?       @relation("AdminAssignments", fields: [assignedById], references: [id])
+
+  callLogs      CallLog[]
+  meetings      Meeting[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("leads")
+}
+
+model CallLog {
+  id          String     @id @default(cuid())
+  leadId      String
+  lead        Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  telecallerId String
+  telecaller  User       @relation(fields: [telecallerId], references: [id])
+  status      LeadStatus
+  notes       String?
+  callbackAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@map("call_logs")
+}
+
+model Meeting {
+  id            String      @id @default(cuid())
+
+  leadId        String
+  lead          Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  associateId   String
+  associate     User        @relation(fields: [associateId], references: [id])
+
+  outcome       AssocStatus
+
+  meetingDate   DateTime?
+  notes         String?
+
+  interested    String?
+  bookingStatus String?
+  followUpDate  DateTime?
+
+  createdAt     DateTime    @default(now())
+
+  @@map("meetings")
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  text      String
+  color     String   @default("#3b82f6")
+  createdAt DateTime @default(now())
+
+  @@map("activities")
+}
